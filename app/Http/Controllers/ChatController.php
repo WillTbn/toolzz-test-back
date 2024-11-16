@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Chat\CreateChatRequest;
 use App\Models\Chat;
+use App\Models\User;
+use App\Services\Chat\CreateChatService;
+use App\Services\ChatMessage\SendInitialChatMessageService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ChatController extends Controller
@@ -34,13 +36,7 @@ class ChatController extends Controller
             )
         ->get();
         // $chats = $user->chats()->with('latestMessage')->get();
-        return new JsonResponse(
-            [
-                "message" => 'Seus chats!',
-                "chat" => $chats
-            ],
-            200
-        );
+        return $this->success(['chat' => $chats], 'Seus chats!');
     }
     /**
      * @param CreateChatRequest $request
@@ -48,22 +44,29 @@ class ChatController extends Controller
      */
     public function createChat(CreateChatRequest $request):JsonResponse
     {
+        $send = $this->loggedUser->id;
+        $receiver = User::where('hash_id', $request->user_hash_id)->first()->id;
+        $exists = Chat::where(function($query) use ($send, $receiver) {
+            $query->where('user_one_id', $send)
+                  ->where('user_two_id', $receiver);
+        })
+        ->orWhere(function($query) use ($send, $receiver) {
+            $query->where('user_one_id', $receiver)
+                  ->where('user_two_id', $send);
+        })
+        ->exists();
+        if($exists){
+            return $this->error('Já existe vinculo, procure nas suas mensagens', 402);
+        }
         // $user = Auth::user();
-        $chat = new Chat();
-        $chat->user_one_id = $this->loggedUser->id;
-        $chat->user_two_id = $request->user_two_id;
-        $chat->hash_id = md5(date('dmYHis'));
-        $chat->saveOrFail();
-
-        // $service = new CreateChatService($chat,  $this->loggedUser->id, $request->body);
-        // $service->execute();
-        return new JsonResponse(
-            [
-                "message" => 'Chat criado com sucesso!',
-                "chat" => $chat
-            ],
-            200
-        );
+        $serviceCreateChat = (new CreateChatService($request->user_hash_id, $this->loggedUser))->execute();
+        $serviceMessage = (new SendInitialChatMessageService(
+            $serviceCreateChat->getChat(),
+            $this->loggedUser,
+            $serviceCreateChat->getReceiver(),
+            $request->body
+        ))->execute();
+        return $this->success(['chat_message' => $serviceMessage->getMessage()], 'Chat criado com sucesso', 200);
 
     }
 }

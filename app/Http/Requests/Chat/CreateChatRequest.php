@@ -22,16 +22,17 @@ class CreateChatRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_two_id' =>'required|exists:users,id',
+            'user_hash_id' =>'required|exists:users,hash_id',
             'body' =>'required'
         ];
     }
     public function messages()
     {
         return [
-            'user_two_id.required' => 'O campo do destinatário é obrigatório.',
-            'user_two_id.exists' => 'O campo destinatário não existis.',
-            'body.required' => 'O campo Category é obrigatório.',
+            'user_hash_id.required' => 'O campo do destinatário é obrigatório.',
+            'user_hash_id.exists' => 'O campo destinatário não existis.',
+            'body.required' => 'O conteúdo da mensagem é obrigatório.',
+            
         ];
     }
 }
