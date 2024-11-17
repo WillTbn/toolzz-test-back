@@ -3,9 +3,12 @@
 namespace App\Services\Auth;
 
 use App\Models\User;
+use App\Notifications\VerifyEmailNotification;
 use App\Services\Service;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 
 class CreateUserService extends Service
 {
@@ -41,6 +44,16 @@ class CreateUserService extends Service
      */
     private $name;
     /**
+     * birthday
+     * @var Date
+     */
+    private $birthday;
+    /**
+     * username
+     * @var string
+     */
+    private $username;
+    /**
      * scope
      * @var string
      */
@@ -56,20 +69,37 @@ class CreateUserService extends Service
      * @var User
      */
     private $user;
-
-    public function __construct($client_id, $client_secret, $email, $password, $name)
+    /**
+     * @param string $client_id
+     * @param string $client_secret
+     * @param string $email
+     * @param string $password
+     * @param string $name
+     * @param string $username
+     * @param Date $birthday
+     */
+    public function __construct(
+        $client_id, $client_secret, $email, 
+        $password, $name, $username, $birthday
+    )
     {
         $this->passportClientSecret = $client_secret;
         $this->passportClientId = $client_id;
         $this->email = $email;
         $this->password = $password;
         $this->name = $name;
+        $this->username = $username;
+        $this->birthday = Carbon::createFromFormat('d-m-Y', $birthday)->format('Y-m-d');
     }
     public function setUser()
     {
         $this->user = new User();
         $this->user->email = $this->email;
         $this->user->name = $this->name;
+        $this->user->username = $this->username;
+        $this->user->birthday = $this->birthday;
+        $this->user->hash_id = md5($this->email.date('dmYHis'));
+        $this->user->remember_token = substr(uniqid(rand()), 0, 5);
         $this->user->password = Hash::make($this->password);
         $this->user->saveOrFail();
     }
@@ -89,25 +119,21 @@ class CreateUserService extends Service
             'password' =>   $this->password,
             'scope' => $this->scope,
         ]);
-        // $response = Http::post(env('APP_URL') . '/oauth/token', [
-        //     'grant_type' => 'password',
-        //     'client_id' => env('PASSPORT_CLIENT_ID'),
-        //     'client_secret' => env('PASSPORT_CLIENT_SECRET'),
-        //     'username' => $userData['email'],
-        //     'password' => $userData['password'],
-        //     'scope' => '',
-        // ]);
         $this->token['token'] = $response->json();
     }
     public function getToken():array
     {
         return $this->token;
     }
+    public function sendVerifyEmail(){
+        $this->getUser()->notify(new VerifyEmailNotification($this->getUser()->remember_token));
+    }
 
     public function execute():CreateUserService
     {
         $this->setUser();
         $this->setToken();
+        $this->sendVerifyEmail();
         return $this;
     }
 }

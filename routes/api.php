@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\AuthEmailController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ChatMessageController;
 use App\Http\Controllers\UserController;
@@ -23,6 +24,14 @@ Route::middleware('auth:api')->group(function() {
         Route::get('/validate', [AuthController::class, 'validate'])->name('validate');
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     });
+    Route::controller(AuthEmailController::class)
+        ->prefix('/email-verify')
+        ->as('email.')
+        ->group(function(){
+            Route::post('/', 'verifyEmailToken')->name('verify');
+            Route::post('/resend', 'resendTokenEmail')->name('resend');
+    });
+    
     Route::controller(ChatController::class)
     ->prefix('/chat')
     ->as('chat.')
@@ -43,5 +52,8 @@ Route::middleware('auth:api')->group(function() {
     ->as('users.')
     ->group(function(){
         Route::get('/', 'store')->name('store');
+        Route::post('/', 'update')->name('update');
+        Route::post('/photo', 'updatePhoto')->name('photo');
+        Route::delete('/', 'destroy')->name('destroy');
     });
 });

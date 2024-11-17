@@ -29,7 +29,9 @@ class AuthController extends Controller
             $request->client_secret,
             $request->email,
             $request->password,
-            $request->name)
+            $request->name, 
+            $request->username,
+            $request->birthday)
             )->execute();
         return $this->success($registerService->getToken(), 'Usuário registrado com sucesso!', 201);
     }
@@ -59,7 +61,7 @@ class AuthController extends Controller
         if(!Auth::check()){
             return $this->error('Usuário não autentificado!', 500);
         }
-        return $this->success($this->loggedUser, 'Dados usuário logado!', 200);
+        return $this->success(['user' =>$this->loggedUser], 'Dados usuário logado!', 200);
     }
     /**
      * refresh token
@@ -75,14 +77,15 @@ class AuthController extends Controller
             'client_secret' => $request->client_secret,
             'scope' => '',
         ]);
-        return $this->success( $response->json(), 'Token renovado!', 200);
+        return $this->success( ['user' => $response->json()], 'Token renovado!', 200);
     }
     /**
      * Logout
      */
-    public function logout(): JsonResponse
+    public function logout(Request $request): JsonResponse
     {
-        $this->loggedUser->tokens()->delete();
-        return $this->success('', 'Usuário deslogado, com sucesso!', 204);
+        $user =  $request->user();
+        $user->tokens()->delete();
+        return $this->success([], 'Usuário deslogado, com sucesso!', 204);
     }
 }
